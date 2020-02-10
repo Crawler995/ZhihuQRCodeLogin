@@ -1,11 +1,10 @@
 import requests
 import os
-import subprocess
 import time
 import pickle
 import copy
-
-from .log_handler import *
+import logging
+import matplotlib.pyplot as plt
 
 
 class _LoginHandler:
@@ -25,22 +24,26 @@ class _LoginHandler:
         self.__qrcode_file_url = os.path.expanduser('~') + '\\zhqrcode.png'
         self.__cookies_file_path = os.path.expanduser('~') + '\\.zh'
         self.__session = requests.session()
-        self.__logger = get_logger(__name__)
+        self.__logger = None
 
-    def login(self, remember_me: bool = True) -> requests.Session:
+    def login(self, remember_me: bool = True, logger: logging.Logger = None) -> requests.Session:
         """
         Login Zhihu by scanning the QRCode, or loading the local cookies.
         If remember_me is True, the cookies will be saved in your disk so that you can login without QRCode next time.
 
         :param remember_me: save the cookies if True. Default True.
+        :param logger: give a logger to output log. Default None.
         :return: requests.Session
         """
+        self.__logger = logger
         try:
             self.__load_cookie()
-            self.__logger.info('load cookies to login successfully!')
+            if self.__logger is not None:
+                self.__logger.info('load cookies to login successfully!')
         except FileNotFoundError:
             self.__qrcode_login(remember_me)
-            self.__logger.info('scan QRCode to login successfully!')
+            if self.__logger is not None:
+                self.__logger.info('scan QRCode to login successfully!')
 
         return copy.deepcopy(self.__session)
 
@@ -66,7 +69,9 @@ class _LoginHandler:
         cookie_file.close()
 
     def __qrcode_login(self, remember_me):
-        self.__logger.debug('preparing necessary cookies to login...')
+        if self.__logger is not None:
+            self.__logger.debug('preparing necessary cookies to login...')
+
         self.__session.get(self.__index_url, headers=self.__index_headers)
         index_cookies_dict = requests.utils.dict_from_cookiejar(self.__session.cookies)
         login_headers = self.__get_login_headers(index_cookies_dict)
@@ -75,22 +80,27 @@ class _LoginHandler:
         self.__session.post(self.__udid_url, headers=login_headers)
 
         token_res = self.__session.post(self.__get_token_url, headers=login_headers).json()
-
-        self.__logger.debug('downloading QRCode...')
+        if self.__logger is not None:
+            self.__logger.debug('downloading QRCode...')
         qrcode_res = self.__session.get(self.__get_token_url + '/%s/image' % token_res['token'],
                                         headers=login_headers)
         with open(self.__qrcode_file_url, 'wb') as f:
             f.write(qrcode_res.content)
-        qrcode_proc = subprocess.Popen([self.__qrcode_file_url], shell=True)
-        self.__logger.debug('show QRCode')
+        self.__open_qrcode()
+        if self.__logger is not None:
+            self.__logger.debug('show QRCode')
 
         while True:
+            if self.__logger is not None:
+                self.__logger.debug('wait for user scanning...')
+
             self.__session.get(self.__get_token_url + '/%s/scan_info' % token_res['token'], headers=login_headers)
             cur_cookies_dict = requests.utils.dict_from_cookiejar(self.__session.cookies)
             if 'z_c0' in cur_cookies_dict.keys():
-                qrcode_proc.terminate()
+                plt.close()
                 if remember_me:
-                    self.__logger.debug('save cookies')
+                    if self.__logger is not None:
+                        self.__logger.debug('save cookies')
                     self.__save_cookie()
                 break
 
@@ -156,6 +166,13 @@ class _LoginHandler:
         cookie_file = open(self.__cookies_file_path, 'wb')
         pickle.dump(self.__session.cookies, cookie_file)
         cookie_file.close()
+
+    def __open_qrcode(self):
+        p = plt.imread(self.__qrcode_file_url)
+        plt.ion()
+        plt.axis('off')
+        plt.imshow(p)
+        plt.pause(0.5)
 
 
 login_handler = _LoginHandler()

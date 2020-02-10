@@ -4,7 +4,7 @@ description_file = open('README.md', 'r', encoding='utf-8')
 
 setuptools.setup(
     name='Zhihu QRCode Login',
-    version='0.0.1',
+    version='0.0.2',
     description='One line to login Zhihu by QRCode.',
     long_description=description_file.read(),
     long_description_content_type='text/markdown',
@@ -15,7 +15,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     license='MIT',
     install_requires=[
-        'requests'
+        'requests',
+        'matplotlib'
     ],
     package_dir={'zhihu_qrcode_login': 'zhihu_qrcode_login'}
 )
