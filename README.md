@@ -2,6 +2,9 @@
 
 One line to login Zhihu by QRCode.
 
+## Install
+`pip install zhihu-qrcode-login`
+
 ## Usage
 ```python
 from zhihu_qrcode_login import login_handler
